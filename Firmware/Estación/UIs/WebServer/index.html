@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP32 Telemetry Dashboard</title>
+<style>
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: linear-gradient(135deg, #27bff1, #04ffb8);
+  background-size: 400% 400%;
+  animation: gradientMove 5s ease infinite;
+  margin: 0;
+  padding: 20px;
+  color: #222;
+  min-height: 100vh;
+}
+
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Title */
+h2 {
+  text-align: center;
+  margin-bottom: 35px;
+  font-size: 2.2rem;
+  letter-spacing: 1px;
+  color: #d421d4;
+  -webkit-text-stroke: 0.25px #000000;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2),
+               0 0 10px rgba(0,255,200,0.3);
+  animation: glowPulse 1s infinite alternate;
+}
+
+/* Subtle animated glow */
+@keyframes glowPulse {
+  from { text-shadow: 0 2px 4px rgba(52, 6, 255, 0.992), 0 0 10px rgb(202, 13, 231); }
+  to   { text-shadow: 0 2px 8px rgba(0,0,0,0.2), 0 0 15px  rgba(0,0,0,0.2) }
+}
+
+  /* Main container: 3 columns */
+  .telemetry-container {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .column {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .left-column { flex: 0 1 320px; }
+  .middle-column { flex: 0 1 320px; }
+  .right-column { flex: 1 1 600px; }
+
+  .telemetry-box {
+    background: #fff;
+    border-radius: 12px;
+    border: 4px solid #000000;
+    padding: 15px 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    text-align: left;
+  }
+
+  .telemetry-box h3 {
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #333;
+  }
+
+  .telemetry-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 8px;
+    font-size: 1rem;
+    align-items: center;
+  }
+
+  .telemetry-grid div:nth-child(odd) { text-align: left; color: #333; }
+  .telemetry-grid div:nth-child(even) { text-align: right; font-weight: 600; color: #222; white-space: nowrap; }
+  .telemetry-grid div:nth-child(odd):not(:last-of-type) { border-bottom: 1px solid rgb(167, 162, 162); }
+
+  .camera-box {
+    background: #fff;
+    border-radius: 12px;
+    border: 4px solid #000000;
+    padding: 15px 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    text-align: center;
+    height: 500px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .camera-box img {
+    width: 100%;
+    height: 80%;
+    object-fit: contain;
+    border-radius: 8px;
+  }
+
+  /********** Controls section **********/
+  .controls-line {
+    margin: 30px 0;
+    border-top: 10px double #000;
+  }
+
+  .controls-container {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+
+  .controls-box {
+    background: #fff;
+    border-radius: 12px;
+    border: 4px solid #000000;
+    padding: 10px;
+    display: grid;
+    gap: 1px;
+    justify-items: center;
+    align-items: center;
+    box-shadow: 0 2px 6px rgba(239, 27, 27, 0.15);
+  }
+
+  /* Arrow buttons grid */
+  .arrow-buttons {
+  display: grid;
+  grid-template-areas:
+    ". up ."
+    "left . right"
+    ". down .";
+  width: 100%;
+  max-width: 400px;  /* keeps it from being too wide on big screens */
+  aspect-ratio: 1 / 1; /* keeps it perfectly square */
+  margin: 0 auto;      /* centers it horizontally */
+  place-items: center; /* centers children */
+  gap: 0px;
+  box-sizing: border-box;
+  }
+
+  .control-button {
+  padding: 20px;
+  font-size: 4rem;
+  border: none;
+  border-radius: 8px;
+  border: 2px solid #000000;
+  background-color: #ff5e00;
+  -webkit-text-stroke: 1px #000000;
+  color: white;
+  cursor: pointer;
+  width: 120px;
+  height: 120px;
+  }
+
+  .control-button:hover {
+  background-color: #db5000;
+  transform: scale(1.05);
+  }
+
+  .command-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;       /* center multiline text horizontally */
+  white-space: normal;      /* allow wrapping */
+  line-height: 1.2;         /* keep balanced spacing between lines */
+  padding: 10px;            /* smaller padding for better centering */
+  font-size: 1.5rem;
+  border: none;
+  border-radius: 15px;
+  border: 2px solid #000000;
+  background-color: #0077cc;
+  -webkit-text-stroke: 0.3px #000000;
+  color: white;
+  cursor: pointer;
+  width: 170px;
+  height: 170px;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  }
+
+.command-button:hover { 
+  background-color: #005fa3;
+  transform: scale(1.05);
+}
+
+  .command-button-movement {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;       /* center multiline text horizontally */
+  white-space: normal;      /* allow wrapping */
+  line-height: 1.2;         /* keep balanced spacing between lines */
+  padding: 1px;            /* smaller padding for better centering */
+  font-size: 1.2rem;
+  border: none;
+  border-radius: 15px;
+  border: 2px solid #000000;
+  background-color: #0077cc;
+  -webkit-text-stroke: 0.15px #000000;
+  color: white;
+  cursor: pointer;
+  width: 110px;
+  height: 110px;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  }
+
+.command-button-movement:hover { 
+  background-color: #005fa3;
+  transform: scale(1.05);
+}
+
+.rainbow {
+  animation: rainbowBG 8s linear infinite;
+  background-size: 400%;
+  background-image: linear-gradient(
+  90deg,
+    red, orange, yellow, green, cyan, blue, violet, red
+  );
+}
+
+@keyframes rainbowBG {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 400% 50%; }
+}
+
+  .control-up { grid-area: up; }
+  .control-down { grid-area: down; }
+  .control-left { grid-area: left; }
+  .control-right { grid-area: right; }
+
+  .command-button-box {
+  background: #fff;
+  border-radius: 12px;
+  border: 4px solid #000000;
+  padding: 15px 20px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  width: 100%;
+  max-width: 400px;   /* prevents being too wide on large screens */
+  margin: 0 auto;     /* centers horizontally */
+  }
+
+  .command-inputs-box {
+  background: #fff;
+  border-radius: 12px;
+  border: 4px solid #000000;
+  padding: 15px 20px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  width: 100%;
+  max-width: 400px;   /* prevents being too wide on large screens */
+  margin: 0 auto;     /* centers horizontally */
+  }
+
+  .command-input-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  }
+
+  .command-input-row label {
+  flex: 1;
+  font-weight: 500;
+  font-size: 0.95rem;
+  }
+
+ .current-value-box {
+  min-width: 60px;              /* roughly same width as input */
+  padding: 6px 12px;            /* same padding as button */
+  border-radius: 6px;
+  background-color: #f0f0f0;    /* light gray background */
+  border: 2px solid #000000;
+  text-align: right;
+  font-size: 0.70rem;
+  color: #333;
+  box-sizing: border-box;
+ }
+
+
+  .command-input-row input {
+  width: 50px;
+  padding: 5px;
+  border-radius: 6px;
+  border: 2px solid #000000;
+  text-align: right;
+  }
+
+  .command-input-row button {
+  padding: 6px 12px;
+  background-color: #0077cc;
+  color: white;
+  border-radius: 6px;
+  border: 2px solid #000000;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  }
+
+  .command-input-row button:hover {
+  background-color: #005fa3;
+  transform: scale(1.05);
+  }
+
+  button.gray {
+  background-color: #999 !important;
+  color: #fff !important;
+  cursor: not-allowed !important;
+  }
+
+  button.gray:hover { background-color: #707872; }
+
+  .grid-box {
+    background: #fff;
+    border-radius: 12px;
+    border: 4px solid #000000;
+    padding: 15px 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 80%;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    aspect-ratio: 1 / 1;       /* Keeps it perfectly square */
+    width: 100%;               /* Fit inside parent */
+    gap: 2px;
+    padding: 5px;
+
+    background-color: #000;
+    border-radius: 12px;
+  }
+
+  .cell {
+    width: 100%;
+    aspect-ratio: 1 / 1;       /* Square cells */
+    background: gray;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: clamp(12px, 2vw, 22px);
+    border-radius: 4px;
+    user-select: none;
+  }
+
+  .graph-box {
+    background: #fff;
+    border-radius: 12px;
+    border: 4px solid #000000;
+    padding: 15px 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+
+    /* NEW — ensures proper layout */
+    display: flex;
+    flex-direction: column;     /* stack h3, select, canvas */
+    align-items: stretch;       /* canvas becomes full width */
+    justify-content: flex-start;
+    
+    gap: 12px;
+
+    width: 100%;
+    max-width: 450px;
+    height: 350px;              /* FIXED HEIGHT — adjust if needed */
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+
+  /* Make canvas fill remaining space */
+  .graph-box canvas {
+    flex: 1;                    /* expand to fill leftover height */
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .graph-box h3 {
+    width: 100%;
+    text-align: center;
+    margin: 0;
+    margin-bottom: 6px;
+  }
+
+/* Responsive */
+@media (max-width: 900px), (max-width: 1200px) and (min-width: 901px) {
+
+  .camera-box {
+    height: 280px;
+    width: 300px
+  }
+
+  .camera-box img {
+    height: 80%;
+  }
+
+  /* Stack telemetry columns */
+  .telemetry-container {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .left-column,
+  .middle-column,
+  .right-column {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  /* Center controls */
+  .controls-container {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Arrow buttons grid scaling */
+  .arrow-buttons,
+  .image-button-box {
+    width: 90%;
+    max-width: none;
+    aspect-ratio: 1 / 1;
+    gap: 5px;
+    margin: 0 auto;
+  }
+
+  .control-button {
+    width: 80px;       /* smaller buttons for small screens */
+    height: 80px;
+    font-size: 2rem;
+    padding: 10px;
+  }
+
+  /* Command boxes fit screen width */
+  .command-button-box,
+  .command-inputs-box {
+    width: 80%;
+    max-width: none;
+    height: auto;
+    gap: 15px;
+    margin: 0 auto;
+  }
+
+  .command-button{
+    width: 120px;
+    height: 120px;
+    font-size: 1.2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.2;
+    padding: 10px;
+  }
+
+    .command-button-movement{
+    width: 80px;
+    height: 80px;
+    font-size: 0.8rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.2;
+    padding: 10px;
+  }
+
+  .command-input-row label {
+    font-size: 0.9rem;
+  }
+
+  .command-input-row input {
+    width: 60px;
+  }
+}
+
+</style>
+</head>
+<body>
+<h2>EVA: Dashboard de Telemetría y Control</h2>
+
+<div class="controls-line"></div>
+
+<div class="telemetry-container">
+  <!-- Left Column -->
+  <div class="column left-column">
+    <div class="telemetry-box">
+      <h3>Intensidad de Señal</h3>
+      <div class="telemetry-grid">
+        <div>RSSI Actual:</div><div><span id="rssiCurr">--</span> [dBm]</div>
+        <div>RSSI Promediado:</div><div><span id="rssiAvg">--</span> [dBm]</div>
+      </div>
+    </div>
+
+    <div class="telemetry-box">
+      <h3>Sensores de Distancia</h3>
+      <div class="telemetry-grid">
+        <div>Distancia 1:</div><div><span id="dist1">--</span> [mm]</div>
+        <div>Distancia 2:</div><div><span id="dist2">--</span> [mm]</div>
+        <div>Distancia 3:</div><div><span id="dist3">--</span> [mm]</div>
+      </div>
+    </div>
+
+    <div class="telemetry-box">
+      <h3>Accel & Gyro</h3>
+      <div class="telemetry-grid">
+        <div>Accel X:</div><div><span id="accX">--</span> [g]</div>
+        <div>Accel Y:</div><div><span id="accY">--</span> [g]</div>
+        <div>Accel Z:</div><div><span id="accZ">--</span> [g]</div>
+        <div>ΔÁngulo X:</div><div><span id="angX">--</span> [°/s]</div>
+        <div>ΔÁngulo Y:</div><div><span id="angY">--</span> [°/s]</div>
+        <div>ΔÁngulo Z:</div><div><span id="angZ">--</span> [°/s]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Middle Column -->
+  <div class="column middle-column">
+    <div class="telemetry-box">
+      <h3>Temperatura & Humedad</h3>
+      <div class="telemetry-grid">
+        <div>Temp. Interna:</div><div><span id="tempInt">--</span> [°C]</div>
+        <div>Hum. Interna:</div><div><span id="humInt">--</span> [%]</div>
+        <div>Temp. Externa:</div><div><span id="tempExt">--</span> [°C]</div>
+        <div>Hum. Externa:</div><div><span id="humExt">--</span> [%]</div>
+      </div>
+    </div>
+
+    <div class="telemetry-box">
+      <h3>Lecturas de Alimentación</h3>
+      <div class="telemetry-grid">
+        <div>ESP+CAM Voltaje:</div><div><span id="voltEsp">--</span> [V]</div>
+        <div>ESP+CAM Corriente:</div><div><span id="currEsp">--</span> [mA]</div>
+        <div>ESP+CAM Potencia:</div><div><span id="powEsp">--</span> [mW]</div>
+
+        <div>Motor 1 Voltaje:</div><div><span id="voltM1">--</span> [V]</div>
+        <div>Motor 1 Corriente:</div><div><span id="currM1">--</span> [mA]</div>
+        <div>Motor 1 Potencia:</div><div><span id="powM1">--</span> [mW]</div>
+
+        <div>Motor 2 Voltaje:</div><div><span id="voltM2">--</span> [V]</div>
+        <div>Motor 2 Corriente:</div><div><span id="currM2">--</span> [mA]</div>
+        <div>Motor 2 Potencia:</div><div><span id="powM2">--</span> [mW]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column (untouched) -->
+  <div class="column right-column">
+    <div class="camera-box">
+      <h3>Última Imagen Guardada</h3>
+      <img id="camImage" src="" alt="ESPCAM">
+    </div>
+  </div>
+</div>
+
+<!-- Line separator -->
+<div class="controls-line"></div>
+
+<!-- Controls -->
+<div class="controls-container">
+
+  <div class="controls-box command-button-box">
+    <button id="recvTel" class="command-button" style="background-color: #28a7a5;">Recibir Telemetría</button>
+    <button id="stopTel" class="command-button" style="background-color: #28a7a5 ;">Detener Telemetría</button>
+    <button id="attemptC" class="command-button"style="background-color: green;">Aceptar Control</button>
+    <button id="releaseC" class="command-button"style="background-color: red;">Renunciar Control</button>
+  </div>
+
+  <div class="controls-box arrow-buttons">
+    <button id="btnUp" class="control-button control-up">↑</button>
+    <button id="btnLeft" class="control-button control-left">←</button>
+    <button id="btnRight" class="control-button control-right">→</button>
+    <button id="btnDown" class="control-button control-down">↓</button>
+  </div>  
+
+  <div class="controls-box command-button-box">
+    <button id="requestImage" class="command-button" style="background-color: #28a745;">Obtener Imagen</button>
+    <button id="captureImage" class="command-button" style="background-color: #28a745;">Capturar Imagen</button>
+    <button id="cancelImage" class="command-button" style="background-color: #28a745;">Cancelar Imagen</button>
+    <button id="resetCam" class="command-button" style="background-color: red;">Reset: ESPCAM</button>
+  </div>
+
+<div class="command-inputs-box">
+  <div class="command-input-row">
+    <label for="goalInput">Coord. de Meta (X.Y)</label>
+    <div class="current-value-box" id="currGoal">0,0</div>
+    <input type="text" id="goalCoords" value="">
+    <button id="setGoalBtn">Enviar</button>
+  </div>
+
+  <div class="command-input-row">
+    <label for="objectInput">Objetos Digitales (X.Y)</label>
+    <div class="current-value-box" id="currObj">0</div>
+    <input type="text" id="objectCoords" value="">
+    <button id="setObjBtn">Enviar</button>
+  </div>
+
+    <div class="command-input-row">
+    <label for="intervalInput">Intervalo Telemetría (s):</label>
+    <div class="current-value-box" id="currInterval">1.5</div>
+    <input type="number" id="intervalInput" min="1" max="120" step="0.1" value="">
+    <button id="setIntervalBtn">Enviar</button>
+  </div>
+
+  <div class="command-input-row">
+    <label for="speedInput">Tamaño de Chunks (B):</label>
+    <div class="current-value-box" id="currChunks">200</div>
+    <input type="number" id="chunkSize" min="1" max="200" step="1" value="">
+    <button id="setChunkBtn">Enviar</button>
+  </div>
+
+  <div class="command-input-row">
+    <label for="stepInput">Pasos de Motor (6400/T):</label>
+    <div class="current-value-box" id="currSteps">3740</div>
+    <input type="number" id="stepSize" min="1" max="25600" value="">
+    <button id="setStepBtn">Enviar</button>
+  </div>
+</div>
+
+  <div class="controls-box command-button-box">
+    <button id="startAuto" class="command-button-movement" style="background-color: #28a7a5;">Iniciar Mov. Autónomo</button>
+    <button id="resumeAuto" class="command-button-movement" style="background-color: #28a7a5 ;">Reanudar Mov. Autónomo</button>
+    <button id="reverseAuto" class="command-button-movement" style="background-color: purple ;">Regresar a Origen</button>
+    <button id="stopAuto" class="command-button-movement"style="background-color: red;">Detener Mov. Autónomo</button>
+    <button id="pauseAuto" class="command-button-movement"style="background-color: red;">Pausar Mov. Autónomo</button>
+    <button id="resetRover" class="command-button-movement"style="background-color: red;">Reset: Eva </button>
+    <button id="clearMap" class="command-button-movement"style="background-color: gray;">Limpiar Mapa</button>
+    <button id="clearAll" class="command-button-movement"style="background-color: gray;">Limpiar Mapa y Pose </button>
+    <button id="party" class="command-button-movement rainbow">¡MODO FIESTA!</button>
+  </div>
+
+  <div class="grid-box">
+      <div id="grid"></div>
+  </div>
+
+  <div class="controls-box command-button-box">
+    <button id="forceShort" class="command-button">-LoRa- <br> Corto Alcance</button>
+    <button id="forceMid" class="command-button">-LoRa- <br> Medio Alcance</button>
+    <button id="forceLong" class="command-button">-LoRa- <br> Largo Alcance</button>
+  </div>
+
+</div>
+
+<div class="controls-line"></div>
+
+<div class="controls-container">
+
+  <!-- BOX 1 -->
+  <div class="controls-box graph-box">
+    <h3>RSSI</h3>
+
+    <select class="chart-select" data-box="1">
+      <option value="rssiCurr">RSSI Actual</option>
+      <option value="rssiAvg">RSSI Promediado</option>
+    </select>
+
+    <canvas id="chartBoxRSSI"></canvas>
+  </div>
+
+  <!-- BOX 2 -->
+  <div class="controls-box graph-box">
+    <h3>Temperatura y Humedad</h3>
+
+    <select class="chart-select" data-box="2">
+      <option value="tempInt">Temp. Interna</option>
+      <option value="tempExt">Temp. Externa</option>
+      <option value="humInt">Hum. Interna</option>
+      <option value="humExt">Hum. Externa</option>
+    </select>
+
+    <canvas id="chartBoxTEMP"></canvas>
+  </div>
+
+  <!-- BOX 3 -->
+  <div class="controls-box graph-box">
+    <h3>Potencia y Alimentación</h3>
+
+    <select class="chart-select" data-box="3">
+      <option value="voltEsp">Voltaje ESP</option>
+      <option value="currEsp">Corriente ESP</option>
+      <option value="powEsp">Potencia ESP</option>
+      <option value="voltM1">Voltaje M1</option>
+      <option value="currM1">Corriente M1</option>
+      <option value="powM1">Potencia M1</option>
+      <option value="voltM2">Voltaje M2</option>
+      <option value="currM2">Corriente M2</option>
+      <option value="powM2">Potencia M2</option>
+    </select>
+
+    <canvas id="chartBoxPOWER"></canvas>
+  </div>
+
+  <!-- BOX 4 -->
+  <div class="controls-box graph-box">
+    <h3>Giroscopio y Acelerómetro</h3>
+
+    <select class="chart-select" data-box="4">
+      <option value="angX">Aceleración (X)</option>
+      <option value="angY">Aceleración (Y)</option>
+      <option value="angZ">Aceleración (Z)</option>
+      <option value="accX">Ángulo (X)</option>
+      <option value="accY">Ángulo (Y)</option>
+      <option value="accZ">Ángulo (Z)</option>
+    </select>
+
+    <canvas id="chartBoxGYRO"></canvas>
+  </div>
+
+  <!-- BOX 5 -->
+  <div class="controls-box graph-box">
+    <h3>Sensores de Distancia</h3>
+
+    <select class="chart-select" data-box="5">
+      <option value="dist1">Dist. Delante</option>
+      <option value="dist2">Dist. Derecha</option>
+      <option value="dist3">Dist. Izquierda</option>
+    </select>
+
+    <canvas id="chartBoxDIST"></canvas>
+  </div>
+</div>
+
+
+<script src="chart.umd.min.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
