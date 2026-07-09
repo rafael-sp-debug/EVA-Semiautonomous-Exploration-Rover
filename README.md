@@ -17,7 +17,7 @@ The rover integrates sensor fusion for health monitoring (IMU, ToF, Voltage/Curr
 
 ## Demo
 
-https://github.com/rafael-sp-debug/EVA-Semiautonomous-Exploration-Rover/blob/main/docs/demo_eva.mp4
+![](docs/demo_eva.mp4)
 
 | | |
 |---|---|
