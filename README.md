@@ -17,7 +17,9 @@ The rover integrates sensor fusion for health monitoring (IMU, ToF, Voltage/Curr
 
 ## Demo
 
-https://github.com/user-attachments/assets/...
+<video src="docs/demo_eva.mp4" controls="controls" width="100%">
+  Tu navegador no soporta el tag de video.
+</video>
 
 | | |
 |---|---|
@@ -49,6 +51,7 @@ The system is divided into independent subsystems running on three main microcon
                                                                                   │  Digital Twin         │
                                                                                   │  Vision (YOLO/OpenCV) │
                                                                                   └───────────────────────┘
+```
 ---
 ## Subsystems (Modules)
 
