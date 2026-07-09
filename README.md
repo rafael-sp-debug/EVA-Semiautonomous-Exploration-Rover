@@ -49,7 +49,7 @@ The system is divided into independent subsystems running on three main microcon
                                                                                   │  Digital Twin         │
                                                                                   │  Vision (YOLO/OpenCV) │
                                                                                   └───────────────────────┘
-
+---
 ## Subsystems (Modules)
 
 | Subsystem | Description | Key Components |
